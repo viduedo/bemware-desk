@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+//                    TABELAS "CORE"
+// ---------------------------------------------------------------------
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TicketPrioridade {
+  Baixa
+  Normal
+  Alta
+  Emergencia
+}
+
+enum TicketStatus {
+  Aberto
+  Resolvido
+  Encerrado
+}
+
+model Account {
+  id                 Int  @id @default(autoincrement())
+  userId             Int
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {  
+  id              Int             @id @default(autoincrement())
+  name            String?
+  email           String?         @unique
+  emailVerified   DateTime?
+  hashedPassword  String?
+  image           String?
+  role            Role            @default(USER)
+  organizacaoId   Int
+  organizacao     Organizacao     @relation(fields: [organizacaoId], references: [id], onDelete: Cascade) 
+  accounts        Account[]
+  sessions        Session[]
+  tickets         Ticket[]
+  ticketMsgs      TicketMsg[]
+}
+
+
+// ---------------------------------------------------------------------
+//                    TABELAS DO SISTEMA "ADICIONAIS"
+// ---------------------------------------------------------------------
+model Ticket {
+  id              Int               @id @default(autoincrement())
+  titulo          String
+  status          TicketStatus      @default(Aberto)
+  prioridade      TicketPrioridade  @default(Normal)
+  createdAt       DateTime          @default(now()) @map(name: "created_at")
+  updatedAt       DateTime          @updatedAt @map(name: "updated_at")
+  userId          Int
+  topicoId        Int
+  user            User              @relation(fields: [userId], references: [id]) 
+  ticketTopico    TicketTopico      @relation(fields: [topicoId], references: [id])
+  ticketMsgs      TicketMsg[]
+}
+
+model TicketTopico {
+  id      Int       @id @default(autoincrement())
+  topico  String
+  tickets Ticket[]
+}
+
+model TicketMsg {
+  id              Int               @id @default(autoincrement())
+  conteudo        String
+  createdAt       DateTime          @default(now()) @map(name: "created_at")
+  updatedAt       DateTime          @updatedAt @map(name: "updated_at")
+  userId          Int
+  ticketId        Int
+  user            User              @relation(fields: [userId], references: [id])            
+  ticket          Ticket            @relation(fields: [ticketId], references: [id])  
+}
+
+model Organizacao {
+  id                Int    @id @default(autoincrement())
+  razaoSocial       String
+  cnpj              String
+  endereco          String?
+  telefone          String?
+  email             String
+  dominio           String
+  isActive          Boolean @default(false)
+  users             User[]
+}
